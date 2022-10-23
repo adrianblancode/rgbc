@@ -1,20 +1,33 @@
+use std::fmt::{Debug, Formatter};
+
 #[derive(PartialEq, Debug)]
 pub enum Register8 {
     // General registers
-    A, F, B, C, D, E, H, L
+    A,
+    F,
+    B,
+    C,
+    D,
+    E,
+    H,
+    L,
 }
 
 #[derive(PartialEq, Debug)]
 pub enum Register16 {
     // Combined registers
-    AF, BC, DE, HL,
+    AF,
+    BC,
+    DE,
+    HL,
     // HL inc / dec
-    HLI, HLD,
+    HLI,
+    HLD,
     // Stack pointer
-    SP
+    SP,
 }
 
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub struct Registers {
     pub a: u8,
     pub f: u8,
@@ -24,17 +37,22 @@ pub struct Registers {
     pub e: u8,
     pub h: u8,
     pub l: u8,
-    pub sp: u16
+    pub sp: u16,
+}
+
+impl Debug for Registers {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "a: {:#04x}, f: {:#04x}, b: {:#04x}, c: {:#04x}, d: {:#04x}, e: {:#04x}, h: {:#04x}, l: {:#04x}, sp: {:#06x}", self.a, self.f, self.b, self.c, self.d, self.e, self.h, self.l, self.sp)
+    }
 }
 
 impl Registers {
-
     pub fn new() -> Self {
         Default::default()
     }
 
     pub fn af(&self) -> u16 {
-        combine_u8(self.a,  self.f)
+        combine_u8(self.a, self.f)
     }
 
     pub fn af_w(&mut self, value: u16) {
@@ -43,7 +61,7 @@ impl Registers {
     }
 
     pub fn bc(&self) -> u16 {
-        combine_u8(self.b,  self.c)
+        combine_u8(self.b, self.c)
     }
 
     pub fn bc_w(&mut self, value: u16) {
@@ -52,7 +70,7 @@ impl Registers {
     }
 
     pub fn de(&self) -> u16 {
-        combine_u8(self.d,  self.e)
+        combine_u8(self.d, self.e)
     }
 
     pub fn de_w(&mut self, value: u16) {
@@ -61,7 +79,7 @@ impl Registers {
     }
 
     pub fn hl(&self) -> u16 {
-        combine_u8(self.h,  self.l)
+        combine_u8(self.h, self.l)
     }
 
     pub fn hl_w(&mut self, value: u16) {
@@ -92,12 +110,12 @@ impl Registers {
                 let value = self.hl();
                 self.hl_w(value.wrapping_add(1));
                 value
-            },
+            }
             Register16::HLD => {
                 let value = self.hl();
                 self.hl_w(value.wrapping_sub(1));
                 value
-            },
+            }
             Register16::SP => self.sp,
         }
     }

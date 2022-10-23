@@ -1,8 +1,27 @@
+use std::fmt::{Debug, Formatter};
 use crate::BootRom;
 
-#[derive(Debug)]
 pub struct Memory {
-    data: [u8;0xffff]
+    pub data: [u8;0xffff]
+}
+
+impl Debug for Memory {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut res = String::new();
+        // let rows = self.data.len() / 16;
+        let rows = 16;
+        for row in 0 .. rows {
+            res.push_str(format!("{:#06x}: ", row * 16).as_str());
+
+            for byte in 0 .. 16 {
+                res.push_str(format!("{:02x} ", self.data[row * 16 + byte]).as_str())
+            }
+
+            res.push_str("\n");
+        }
+
+        write!(f, "{}", res)
+    }
 }
 
 impl Memory {
