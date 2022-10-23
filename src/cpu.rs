@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter};
 use crate::flags::{Flag, Flags};
 use crate::registers::*;
 use crate::instructions::*;
@@ -10,26 +11,37 @@ pub struct ProgramCounter {
     pub value: u16,
 }
 
-#[derive(Debug)]
 pub struct Cpu {
     regs: Registers,
     flags: Flags,
-    mem: Memory,
+    pub mem: Memory,
     pc: ProgramCounter,
+    cycles: u16,
+}
+
+impl Debug for Cpu {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Cpu state:\n{:?} \n{:?} \n{:?} \nCycles: {:?} \nMemory:\n{:?}", self.regs, self.flags, self.pc, self.cycles, self.mem)
+    }
 }
 
 impl Cpu {
     pub fn new(mem: Memory) -> Self {
-        Cpu { regs: Registers::new(), flags: Flags::new(), mem, pc: ProgramCounter { value: 0 } }
+        Cpu {
+            regs: Registers::new(),
+            flags: Flags::new(),
+            mem,
+            pc: ProgramCounter { value: 0 },
+            cycles: 0,
+        }
     }
 
     pub fn step(&mut self) {
-        let opcode = Opcode { value : self.read_pcaddr8() };
+        let opcode = Opcode { value: self.read_pcaddr8() };
         let instruction = opcode.to_instruction();
-        println!("pc: {:#08x}", self.pc.value);
         println!("Executing instruction {opcode:?}, {instruction:?}");
         self.execute_instruction(&instruction);
-        let cycles = instruction.cycles(&opcode, &self.flags);
+        self.update_cycles(&instruction, &opcode);
     }
 
     fn execute_instruction(&mut self, instruction: &Instruction) {
@@ -65,9 +77,9 @@ impl Cpu {
             Instruction::JumpIf { flag } => self.jump_if(flag),
             Instruction::JumpHL => self.jump_hl(),
             Instruction::JumpReg => self.jump_reg(),
-            Instruction::JumpRegIf { flag}  => self.jump_reg_if(flag),
+            Instruction::JumpRegIf { flag } => self.jump_reg_if(flag),
             Instruction::Call => self.call(),
-            Instruction::CallIf { flag } => self.call_pc(flag),
+            Instruction::CallIf { flag } => self.call_if(flag),
             Instruction::Return => self.ret(),
             Instruction::ReturnIf { flag } => self.ret_if(flag),
             Instruction::ReturnInterrupt => self.ret_interrupt(),
@@ -87,6 +99,23 @@ impl Cpu {
                 // TODO cycles
             }
             _ => panic!("Instruction {instruction:?} not implemented")
+        }
+    }
+
+    fn update_cycles(&mut self, instruction: &Instruction, opcode: &Opcode) {
+        self.cycles += instruction.cycles(opcode, &self.flags) as u16;
+
+        if self.cycles >= 456 {
+            self.cycles = 0;
+
+            let scanline: u8 = self.mem.read_addr8(0xff44);
+            let value = if scanline > 153 { 0 } else { scanline + 1 };
+
+            self.mem.write_addr8(0xff44, value);
+
+            if value == 144 {
+                // Todo interrupt
+            }
         }
     }
 
@@ -181,7 +210,7 @@ impl Cpu {
 
     fn compare_a(&mut self, src: &OpsTarget8) {
         let a = self.regs.a;
-        self.sub_a(src,&false);
+        self.sub_a(src, &false);
         self.regs.a = a;
     }
 
@@ -302,7 +331,7 @@ impl Cpu {
 
     fn jump_if(&mut self, flag: &Flag) {
         if self.flags.flag(flag) {
-            self.pc.value = self.read_pcaddr16()
+            self.jump();
         } else {
             self.pc.value += 2
         }
@@ -321,10 +350,7 @@ impl Cpu {
 
     fn jump_reg_if(&mut self, flag: &Flag) {
         if self.flags.flag(flag) {
-            let b: i8 = self.read_pcaddr8() as i8;
-            let a: u16 = self.pc.value;
-            let value: u16 = (a as i32 + b as i32) as u16;
-            self.pc.value = value;
+            self.jump_reg()
         } else {
             self.pc.value += 1;
         }
@@ -337,12 +363,9 @@ impl Cpu {
         self.pc.value = self.read_pcaddr16();
     }
 
-    fn call_pc(&mut self, flag: &Flag) {
-        // Push current pc value to stack
+    fn call_if(&mut self, flag: &Flag) {
         if self.flags.flag(flag) {
-            self.regs.sp -= 2;
-            self.mem.write_addr16(self.regs.sp, self.pc.value + 2);
-            self.pc.value = self.read_pcaddr16();
+            self.call()
         } else {
             self.pc.value += 2;
         }
@@ -357,8 +380,7 @@ impl Cpu {
     fn ret_if(&mut self, flag: &Flag) {
         // Pop value at top of stack to sp
         if self.flags.flag(flag) {
-            self.pc.value = self.mem.read_addr16(self.regs.sp);
-            self.regs.sp += 2
+            self.ret()
         } else {
             // TODO increase pc?
         }

@@ -9,27 +9,35 @@ mod opcode_parser;
 mod cycles;
 mod flags;
 mod bootrom;
+mod frontend;
 
-use std::{env, path};
-use std::path::{Path, PathBuf};
+use std::{env};
+use std::path::{Path};
 use cpu::Cpu;
 use bootrom::BootRom;
+use crate::frontend::Frontend;
 use crate::instructions::Opcode;
 use crate::memory::Memory;
 
 struct Emulator {
+    // frontend: Frontend,
     cpu: Cpu,
 }
 
 impl Emulator {
     fn new(bootrom: BootRom) -> Emulator {
         let mem = Memory::new(bootrom);
-        Emulator { cpu: Cpu::new(mem) }
+        let cpu = Cpu::new(mem);
+        Emulator {
+            // frontend : Frontend::new(),
+            cpu
+        }
     }
 
     fn run(&mut self) {
-        loop {
-            self.cpu.step()
+        for x in 0 .. 20000 {
+            self.cpu.step();
+            // self.frontend.step(&self.cpu.mem);
         }
     }
 }
@@ -41,7 +49,6 @@ fn main() {
     let boot_rom = BootRom::new(Path::new(boot_rom_arg)).expect("Failed to read boot rom");
 
     let mut emulator = Emulator::new(boot_rom);
-
     emulator.run();
-    // println!("Cpu: {0:?}", emulator.cpu);
+    println!("{:?}", emulator.cpu);
 }
