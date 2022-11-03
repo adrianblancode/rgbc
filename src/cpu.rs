@@ -39,7 +39,7 @@ impl Cpu {
     pub fn step(&mut self) {
         let opcode = Opcode { value: self.read_pcaddr8() };
         let instruction = opcode.to_instruction();
-        println!("Executing instruction {opcode:?}, {instruction:?}");
+        // println!("Executing instruction {opcode:?}, {instruction:?}");
         self.execute_instruction(&instruction);
         self.update_cycles(&instruction, &opcode);
     }

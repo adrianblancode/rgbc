@@ -20,7 +20,7 @@ use crate::instructions::Opcode;
 use crate::memory::Memory;
 
 struct Emulator {
-    // frontend: Frontend,
+    frontend: Frontend,
     cpu: Cpu,
 }
 
@@ -29,15 +29,17 @@ impl Emulator {
         let mem = Memory::new(bootrom);
         let cpu = Cpu::new(mem);
         Emulator {
-            // frontend : Frontend::new(),
+            frontend : Frontend::new(),
             cpu
         }
     }
 
     fn run(&mut self) {
-        for x in 0 .. 20000 {
+        for x in 0 .. 99990000 {
             self.cpu.step();
-            // self.frontend.step(&self.cpu.mem);
+            if x % 100 == 0 {
+                self.frontend.step(&self.cpu.mem);
+            }
         }
     }
 }

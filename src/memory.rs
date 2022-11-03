@@ -28,9 +28,7 @@ impl Memory {
 
     pub fn new(bootrom: BootRom) -> Memory {
         let mut data: [u8;0xffff] = [0;0xffff];
-        for i in 0..bootrom.data.len() {
-            data[i] = bootrom.data[i]
-        }
+        data[0..bootrom.data.len()].copy_from_slice(bootrom.data.as_slice());
         Memory { data }
     }
 
