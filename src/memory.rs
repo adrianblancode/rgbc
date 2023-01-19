@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Formatter};
-use crate::BootRom;
+use crate::Rom;
 
 pub struct Memory {
     pub data: [u8;0xffff]
@@ -26,7 +26,7 @@ impl Debug for Memory {
 
 impl Memory {
 
-    pub fn new(bootrom: BootRom) -> Memory {
+    pub fn new(bootrom: Rom) -> Memory {
         let mut data: [u8;0xffff] = [0;0xffff];
         data[0..bootrom.data.len()].copy_from_slice(bootrom.data.as_slice());
         Memory { data }

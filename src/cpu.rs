@@ -108,10 +108,10 @@ impl Cpu {
         if self.cycles >= 456 {
             self.cycles = 0;
 
-            let scanline: u8 = self.mem.read_addr8(0xff44);
+            let scanline: u8 = self.mem.read_addr8(0xFF44);
             let value = if scanline > 153 { 0 } else { scanline + 1 };
 
-            self.mem.write_addr8(0xff44, value);
+            self.mem.write_addr8(0xFF44, value);
 
             if value == 144 {
                 // Todo interrupt
