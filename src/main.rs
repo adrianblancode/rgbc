@@ -28,8 +28,8 @@ struct Emulator {
 }
 
 impl Emulator {
-    fn new(bootrom: Rom) -> Emulator {
-        let mem = Memory::new(bootrom);
+    fn new(boot_rom: Rom, rom: Option<Rom>) -> Emulator {
+        let mem = Memory::new(boot_rom, rom);
         let cpu = Cpu::new(mem);
         Emulator {
             frontend : Frontend::new(),
@@ -39,7 +39,9 @@ impl Emulator {
     }
 
     fn run(&mut self) {
-        loop {
+        println!("Starting:\n{:?}", self.cpu.mem);
+
+        for _ in 0..99999999 {
 
             if !self.frontend.is_open() { return; }
 
@@ -56,7 +58,10 @@ fn main() {
     let boot_rom_arg: &String = &args.get(1).expect("First argument must contain boot rom path");
     let boot_rom = Rom::new(Path::new(boot_rom_arg)).expect("Failed to read boot rom");
 
-    let mut emulator = Emulator::new(boot_rom);
+    let rom_arg: &Option<&String> = &args.get(2);
+    let rom: Option<Rom> = rom_arg.and_then(| path | Rom::new(Path::new(path)).ok());
+
+    let mut emulator = Emulator::new(boot_rom, rom);
     emulator.run();
     println!("{:?}", emulator.cpu);
 }

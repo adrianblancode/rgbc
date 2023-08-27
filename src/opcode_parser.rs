@@ -80,10 +80,10 @@ impl InstructionParser for Opcode {
             _ if opcode.in_column(0x00..=0x3F, 0x06) => {
                 Load { dst: opcode.high_opst8(), src: PcAddr8 }
             }
-            0x07 => RotateLeftA { carry: false },
-            0x0F => RotateRightA { carry: false },
-            0x17 => RotateLeftA { carry: true },
-            0x1F => RotateRightA { carry: true },
+            0x07 => RotateLeftA { carry: true },
+            0x0F => RotateRightA { carry: true },
+            0x17 => RotateLeftA { carry: false },
+            0x1F => RotateRightA { carry: false },
             0x27 => DecimalAdjustA,
             0x2F => ComplementA,
             0x37 => SetCarryFlag,
@@ -173,10 +173,10 @@ impl InstructionParser for Opcode {
         let target: OpsTarget8 = opcode.low_opst8();
         match opcode.value {
             // TODO carry flag?
-            0x00..=0x07 => RotateLeft { dst: target, carry: false },
-            0x08..=0x0F => RotateRight { dst: target, carry: false },
-            0x10..=0x17 => RotateLeft { dst: target, carry: true },
-            0x18..=0x1F => RotateRight { dst: target, carry: true },
+            0x00..=0x07 => RotateLeft { dst: target, carry: true },
+            0x08..=0x0F => RotateRight { dst: target, carry: true },
+            0x10..=0x17 => RotateLeft { dst: target, carry: false },
+            0x18..=0x1F => RotateRight { dst: target, carry: false },
             0x20..=0x27 => ShiftLeftArithmetic { dst: target },
             0x28..=0x2F => ShiftRightArithmetic { dst: target },
             0x30..=0x37 => SwapNibbles { dst: target },

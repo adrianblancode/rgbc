@@ -39,7 +39,11 @@ impl Cpu {
     pub fn step(&mut self) {
         let opcode = Opcode { value: self.read_pcaddr8() };
         let instruction = opcode.to_instruction();
-        // println!("Executing instruction {opcode:?}, {instruction:?}");
+        // println!("Executing instruction {opcode:?}, {instruction:?} at {:04x}", self.pc.value - 1);
+        let sb = self.mem.read_addr8(0xFF01);
+        if sb != 0 {
+            println!("SB: {:02x}", sb);
+        }
         self.execute_instruction(&instruction);
         self.update_cycles(&instruction, &opcode);
     }
@@ -94,7 +98,7 @@ impl Cpu {
             Instruction::NestedInstruction => {
                 let opcode = Opcode { value: self.read_pcaddr8() };
                 let bit_instruction = opcode.to_bit_instruction();
-                println!("Executing bit instruction {opcode:?}, {bit_instruction:?}");
+                // println!("Executing bit instruction {opcode:?}, {bit_instruction:?}");
                 self.execute_bit_instruction(&bit_instruction);
                 // TODO cycles
             }
@@ -221,7 +225,7 @@ impl Cpu {
 
         self.flags.z = value == 0;
         self.flags.n = false;
-        self.flags.h = (a << 4).overflowing_add(1).1;
+        self.flags.h = a & 0x0F == 0x0F;
     }
 
     fn inc16(&mut self, dst: &OpsTarget16) {
@@ -231,7 +235,7 @@ impl Cpu {
 
         self.flags.z = value == 0;
         self.flags.n = false;
-        self.flags.h = (a << 4).overflowing_add(1).1;
+        self.flags.h = a & 0x0F == 0x0F;
     }
 
     fn dec(&mut self, dst: &OpsTarget8) {
@@ -241,7 +245,7 @@ impl Cpu {
 
         self.flags.z = value == 0;
         self.flags.n = true;
-        self.flags.h = (a << 4).overflowing_sub(1).1;
+        self.flags.h = a & 0x0F == 0;
     }
 
     fn dec16(&mut self, dst: &OpsTarget16) {
@@ -251,41 +255,28 @@ impl Cpu {
 
         self.flags.z = value == 0;
         self.flags.n = true;
-        self.flags.h = (a << 4).overflowing_sub(1).1;
+        self.flags.h = a & 0x0F == 0;
     }
 
     fn rotate_left_a(&mut self, carry: &bool) {
-        let a = self.regs.a;
-        let (mut value, overflow) = a.overflowing_shl(1);
-        let c = if *carry { self.flags.c } else { overflow };
-
-        if c { value = value | 1 }
-
-        self.flags.z = value == 0;
-        self.flags.n = false;
-        self.flags.h = false;
-        self.flags.c = c;
-
-        self.regs.a = value
+        let pre = self.regs.a;
+        self.rotate_left(&OpsTarget8::R8(Register8::A), *carry);
+        println!("Rotating a, before: {pre:#04x}, after: {:#04x}", self.regs.a);
+        self.flags.z = false;
     }
 
     fn rotate_right_a(&mut self, carry: &bool) {
-        let a = self.regs.a;
-        let (mut value, overflow) = a.overflowing_shr(1);
-        let c = if *carry { self.flags.c } else { overflow };
-
-        if c { value = value | 1 }
-
-        self.flags.z = value == 0;
-        self.flags.n = false;
-        self.flags.h = false;
-        self.flags.c = c;
-
-        self.regs.a = value
+        self.rotate_right(&OpsTarget8::R8(Register8::A), *carry);
+        self.flags.z = false;
     }
 
     fn load(&mut self, dst: &OpsTarget8, src: &OpsTarget8) {
         let value: u8 = self.read_opst8(src);
+        if let OpsTarget8::R8(r8) = src {
+            if r8 == &Register8::A {
+                println!("Loading {:02x} to {:?} from {:?}", value, dst, src);
+            }
+        }
         self.write_opst8(dst, value);
     }
 
@@ -295,8 +286,8 @@ impl Cpu {
     }
 
     fn load_dst_addr(&mut self, dst: &OpsTarget8, src: &OpsTarget8) {
-        let addr: u16 = 0xFF00 + self.read_opst8(dst) as u16;
         let value: u8 = self.read_opst8(src);
+        let addr: u16 = 0xFF00 + self.read_opst8(dst) as u16;
         self.write_addr8(addr, value);
     }
 
@@ -358,9 +349,11 @@ impl Cpu {
 
     fn call(&mut self) {
         // Push current pc value to stack
+        let addr: u16 = self.read_pcaddr16();
+        println!("Call at {:04x} for {:04x}", self.pc.value, addr);
         self.regs.sp -= 2;
-        self.mem.write_addr16(self.regs.sp, self.pc.value + 2);
-        self.pc.value = self.read_pcaddr16();
+        self.mem.write_addr16(self.regs.sp, self.pc.value);
+        self.pc.value = addr;
     }
 
     fn call_if(&mut self, flag: &Flag) {
@@ -373,6 +366,7 @@ impl Cpu {
 
     fn ret(&mut self) {
         // Pop value at top of stack to sp
+        println!("Ret at {:04x} for {:04x}", self.pc.value, self.mem.read_addr16(self.regs.sp));
         self.pc.value = self.mem.read_addr16(self.regs.sp);
         self.regs.sp += 2
     }
@@ -387,12 +381,14 @@ impl Cpu {
     }
 
     fn ret_interrupt(&mut self) {
-        // Todo self.pc = pop
+        // Todo
         // Enable interrupts
+        self.ret()
     }
 
     fn restart(&mut self, addr: &u16) {
         // Todo push
+        todo!();
         self.pc.value = *addr;
     }
 
@@ -410,16 +406,46 @@ impl Cpu {
 
     fn execute_bit_instruction(&mut self, instruction: &BitInstruction) {
         match instruction {
-            BitInstruction::RotateLeft { .. } => {}
-            BitInstruction::RotateRight { .. } => {}
-            BitInstruction::ShiftLeftArithmetic { .. } => {}
-            BitInstruction::ShiftRightArithmetic { .. } => {}
-            BitInstruction::SwapNibbles { .. } => {}
-            BitInstruction::ShiftRightLogical { .. } => {}
+            BitInstruction::RotateLeft { dst, carry } => self.rotate_left(dst, *carry),
+            BitInstruction::RotateRight { .. } => !todo!(),
+            BitInstruction::ShiftLeftArithmetic { .. } => !todo!(),
+            BitInstruction::ShiftRightArithmetic { .. } => !todo!(),
+            BitInstruction::SwapNibbles { .. } => !todo!(),
+            BitInstruction::ShiftRightLogical { .. } => !todo!(),
             BitInstruction::BitTest { src, bit } => self.bit_test(src, bit),
-            BitInstruction::BitReset { .. } => {}
+            BitInstruction::BitReset { .. } => !todo!(),
             BitInstruction::BitSet { dst, bit } => self.bit_set(dst, bit)
         }
+    }
+
+    fn rotate_left(&mut self, dst: &OpsTarget8, carry: bool) {
+        let a = self.read_opst8(dst);
+        let overflow = a & 0x80 != 0;
+        let mut value = a << 1;
+        let c = if carry { overflow } else { self.flags.c };
+
+        if c { value = value | 1 }
+        self.write_opst8(dst, value);
+
+        self.flags.z = value == 0;
+        self.flags.n = false;
+        self.flags.h = false;
+        self.flags.c = overflow;
+    }
+
+    fn rotate_right(&mut self, dst: &OpsTarget8, carry: bool) {
+        let a = self.read_opst8(dst);
+        let overflow = a & 0x1 != 0;
+        let mut value = a >> 1;
+        let c = if carry { overflow } else { self.flags.c };
+
+        if c { value = value | 0x80 }
+        self.write_opst8(dst, value);
+
+        self.flags.z = value == 0;
+        self.flags.n = false;
+        self.flags.h = false;
+        self.flags.c = overflow;
     }
 
     fn bit_test(&mut self, dst: &OpsTarget8, bit: &u8) {
